@@ -462,15 +462,9 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
       <div className="mb-4 text-2xl font-bold text-center">Grades Table</div>
       <div className="rounded-md border">
         <Table className="w-full">
-          <TableCaption>
-            A table with grades (Pass threshold: {normalizeGrades
-              ? `${normalizedPassThreshold.toFixed(1)}/10 (normalized from ${passThreshold}/${maxPossibleGrade})`
-              : passThreshold}
-            )
-          </TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[60px]">#</TableHead>
+              <TableHead className="w-[60px] text-center">#</TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('studentName')}
