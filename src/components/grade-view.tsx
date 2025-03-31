@@ -1,7 +1,6 @@
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableFooter,
   TableHead,
@@ -301,143 +300,140 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Histogram Chart - Now on the left */}
-        <Card className="p-4">
+      <div className="grid grid-cols-1 md:grid-cols-10 gap-6 mb-6">
+        <Card className="p-4 flex flex-col col-span-full md:col-span-7">
           <div className="mb-4 text-xl font-semibold">
-            Grade Distribution
-            {normalizeGrades && maxPossibleGrade !== 10 && <span className="ml-2 text-sm font-normal text-muted-foreground">(normalized out of 10)</span>}
+        Grade Distribution
+        {normalizeGrades && maxPossibleGrade !== 10 && <span className="ml-2 text-sm font-normal text-muted-foreground">(normalized out of 10)</span>}
           </div>
           <div className="h-[300px] w-full">
-            {hasValidChartData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={histogramData} 
-                  margin={{ top: 5, right: 20, left: 0, bottom: 25 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis 
-                    dataKey="range" 
-                    tickMargin={10} 
-                    axisLine={true}
-                  />
-                  <YAxis 
-                    allowDecimals={false}
-                    label={{ 
-                      value: 'Number of Students', 
-                      angle: -90, 
-                      position: 'insideLeft',
-                      style: { textAnchor: 'middle' }
-                    }}
-                  />
-                  <Tooltip 
-                    formatter={(value: any) => [`${value} students`, 'Count']}
-                    labelFormatter={(label) => `Grade range: ${label}`}
-                  />
-                  <Bar 
-                    dataKey="count" 
-                    fill="hsl(var(--primary))"
-                    fillOpacity={0.9}
-                    name="Count"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                No grade data available to display chart
-              </div>
-            )}
+        {hasValidChartData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart 
+          data={histogramData} 
+          margin={{ top: 5, right: 20, left: 0, bottom: 25 }}
+            >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis 
+            dataKey="range" 
+            tickMargin={10} 
+            axisLine={true}
+          />
+          <YAxis 
+            allowDecimals={false}
+            label={{ 
+              value: 'Number of Students', 
+              angle: -90, 
+              position: 'insideLeft',
+              style: { textAnchor: 'middle' }
+            }}
+          />
+          <Tooltip 
+            formatter={(value: any) => [`${value} students`, 'Count']}
+            labelFormatter={(label) => `Grade range: ${label}`}
+          />
+          <Bar 
+            dataKey="count" 
+            fill="hsl(var(--primary))"
+            fillOpacity={0.9}
+            name="Count"
+            radius={[4, 4, 0, 0]}
+          />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            No grade data available to display chart
           </div>
-          <div className="mt-4 text-sm text-muted-foreground flex justify-between items-center">
-            <span>Grade distribution by ranges</span>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-primary"></div>
-                <span>Not passing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-success"></div>
-                <span>Passing</span>
-              </div>
-            </div>
+        )}
+          </div>
+          <div className="mt-4 text-sm text-muted-foreground flex justify-between items-center md:w-full">
+        <span>Grade distribution by ranges</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-primary"></div>
+            <span>Not passing</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-success"></div>
+            <span>Passing</span>
+          </div>
+        </div>
           </div>
         </Card>
-
-        {/* Pass/Fail Pie Chart - Now on the right */}
-        <Card className="p-4">
+        <Card className="p-4 col-span-full md:col-span-3">
           <div className="mb-4 text-xl font-semibold text-center">
-            Pass/Fail Distribution
-            {normalizeGrades && maxPossibleGrade !== 10 && <span className="ml-2 text-sm font-normal text-muted-foreground">(normalized out of 10)</span>}
+        Pass/Fail Distribution
+        {normalizeGrades && maxPossibleGrade !== 10 && <span className="ml-2 text-sm font-normal text-muted-foreground">(normalized out of 10)</span>}
           </div>
           <div className="h-[300px] w-full">
-            {totalStudents > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70} // Increased inner radius for slimmer look
-                    outerRadius={90}
-                    paddingAngle={4} // Increased padding angle
-                    stroke="#fff" // White stroke for better separation
-                    strokeWidth={3}
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.fill} 
-                      />
-                    ))}
-                    <ChartLabel
-                      content={({ viewBox }) => {
-                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                          return (
-                            <g>
-                              <text
-                                x={viewBox.cx}
-                                y={viewBox.cy}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                              >
-                                <tspan
-                                  x={viewBox.cx}
-                                  y={((viewBox.cy ?? 0) - 10)}
-                                  className="fill-foreground text-3xl font-bold"
-                                >
-                                  {passRate.toFixed(0)}%
-                                </tspan>
-                                <tspan
-                                  x={viewBox.cx}
-                                  y={(viewBox.cy ?? 0) + 15}
-                                  className="fill-muted-foreground text-sm"
-                                >
-                                  Pass Rate
-                                </tspan>
-                              </text>
-                            </g>
-                          )
-                        }
-                        return null;
-                      }}
-                    />
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: any, name) => [
-                      `${value} students (${((value / totalStudents) * 100).toFixed(1)}%)`, 
-                      name
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                No grade data available to display chart
-              </div>
-            )}
+        {totalStudents > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+          <Pie
+            data={pieChartData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            innerRadius={70} // Increased inner radius for slimmer look
+            outerRadius={90}
+            paddingAngle={4} // Increased padding angle
+            stroke="#fff" // White stroke for better separation
+            strokeWidth={3}
+          >
+            {pieChartData.map((entry, index) => (
+              <Cell 
+            key={`cell-${index}`} 
+            fill={entry.fill} 
+              />
+            ))}
+            <ChartLabel
+              content={({ viewBox }) => {
+            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+              return (
+                <g>
+              <text
+                x={viewBox.cx}
+                y={viewBox.cy}
+                textAnchor="middle"
+                dominantBaseline="middle"
+              >
+                <tspan
+                  x={viewBox.cx}
+                  y={((viewBox.cy ?? 0) - 10)}
+                  className="fill-foreground text-3xl font-bold"
+                >
+                  {passRate.toFixed(0)}%
+                </tspan>
+                <tspan
+                  x={viewBox.cx}
+                  y={(viewBox.cy ?? 0) + 15}
+                  className="fill-muted-foreground text-sm"
+                >
+                  Pass Rate
+                </tspan>
+              </text>
+                </g>
+              )
+            }
+            return null;
+              }}
+            />
+          </Pie>
+          <Tooltip
+            formatter={(value: any, name) => [
+              `${value} students (${((value / totalStudents) * 100).toFixed(1)}%)`, 
+              name
+            ]}
+          />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            No grade data available to display chart
+          </div>
+        )}
           </div>
           <div className="mt-4 text-sm text-muted-foreground">
             <div className="flex justify-center items-center gap-6">
