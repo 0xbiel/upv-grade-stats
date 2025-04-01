@@ -24,6 +24,11 @@ import { Switch } from "@/components/ui/switch";
 type SortColumn = 'studentName' | 'grade' | 'status';
 type SortDirection = 'asc' | 'desc';
 
+// Define extended type for normalized grades
+interface NormalizedGrade extends Grade {
+  originalGrade: number;
+}
+
 export default function GradeView({ grades }: { grades: Grade[] }) {
   const [avarage, setAvarage] = useState<number>(0);
   const [median, setMedian] = useState<number>(0);
@@ -50,7 +55,7 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
       ...grade,
       grade: (grade.grade / maxPossibleGrade) * 10,
       originalGrade: grade.grade // Keep original grade
-    }));
+    })) as NormalizedGrade[];
   }, [grades, normalizeGrades, maxPossibleGrade]);
 
   // Use normalized grades when normalization is enabled
@@ -250,7 +255,7 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
                 Grades of {passThreshold} or higher are considered passing
                 {normalizeGrades && maxPossibleGrade !== 10 && (
                   <span className="block mt-1">
-                    (normalized: {(passThreshold / maxPossibleGrade * 10).toFixed(1)}/10)
+                    (normalized: {(passThreshold / maxPossibleGrade * 10).toFixed(2)}/10)
                   </span>
                 )}
               </p>
@@ -284,11 +289,11 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
         </Card>
         <Card className="p-4 flex flex-col items-center">
           <span className="text-lg font-semibold">Max Grade</span>
-          <span className="text-2xl">{maxGrade}</span>
+          <span className="text-2xl">{maxGrade.toFixed(2)}</span>
         </Card>
         <Card className="p-4 flex flex-col items-center">
           <span className="text-lg font-semibold">Min Grade</span>
-          <span className="text-2xl">{minGrade}</span>
+          <span className="text-2xl">{minGrade.toFixed(2)}</span>
         </Card>
         <Card className="p-4 flex flex-col items-center">
           <span className="text-lg font-semibold">Pass Rate</span>
@@ -329,7 +334,7 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
             }}
           />
           <Tooltip 
-            formatter={(value: any) => [`${value} students`, 'Count']}
+            formatter={(value: number) => [`${value} students`, 'Count']}
             labelFormatter={(label) => `Grade range: ${label}`}
           />
           <Bar 
@@ -422,8 +427,8 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
             />
           </Pie>
           <Tooltip
-            formatter={(value: any, name) => [
-              `${value} students (${((value / totalStudents) * 100).toFixed(1)}%)`, 
+            formatter={(value: number, name) => [
+              `${value} students (${((value / totalStudents) * 100).toFixed(2)}%)`, 
               name
             ]}
           />
@@ -448,7 +453,7 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
             </div>
             <div className="text-center mt-2">
               Pass threshold: {normalizeGrades 
-                ? `${normalizedPassThreshold.toFixed(1)}/10` 
+                ? `${normalizedPassThreshold.toFixed(2)}/10` 
                 : `${passThreshold}/${maxPossibleGrade}`}
             </div>
           </div>
@@ -498,8 +503,14 @@ export default function GradeView({ grades }: { grades: Grade[] }) {
                   {index + 1}
                 </TableCell>
                 <TableCell>{grade.studentName}</TableCell>
-                <TableCell>{grade.grade.toFixed(1)}</TableCell>
-                {normalizeGrades && <TableCell>{(grade as any).originalGrade?.toFixed(1) || grade.grade.toFixed(1)}</TableCell>}
+                <TableCell>{grade.grade.toFixed(2)}</TableCell>
+                {normalizeGrades && (
+                  <TableCell>
+                    {normalizeGrades && 'originalGrade' in grade
+                      ? (grade as NormalizedGrade).originalGrade.toFixed(2)
+                      : grade.grade.toFixed(2)}
+                  </TableCell>
+                )}
                 <TableCell>
                   <span className={grade.grade >= normalizedPassThreshold ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
                     {grade.grade >= normalizedPassThreshold ? "Pass" : "Fail"}
