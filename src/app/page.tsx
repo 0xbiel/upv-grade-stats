@@ -76,7 +76,7 @@ export default function Home() {
             <AutoResizeTextarea
               value={value}
               onChange={handleChange}
-              placeholder="Input the HTML here..."
+              placeholder="Paste Grades here..."
               className="placeholder:text-muted-foreground flex-1 bg-transparent focus:outline-none w-full min-h-[75px]"
             />
             <Tooltip>
