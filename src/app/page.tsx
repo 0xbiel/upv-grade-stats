@@ -157,7 +157,7 @@ export default function Home() {
             height={100}
             className="mb-4"
           />
-          <div className="mb-4 text-2xl font-semibold text-center">Grade Stats</div>
+          <div className="mb-4 text-2xl font-medium text-center">Grade Stats</div>
           {lastGrades && lastGrades.length > 0 && (
             <Button
               variant="secondary"
