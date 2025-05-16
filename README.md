@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Grade Stats (UPV Grades Parser)
 
-## Getting Started
+A modern web app to parse, analyze, and share student grades. Paste your grades (from a table, spreadsheet, or plain text), view statistics and charts, and share results with a single link—no server or database required.
 
-First, run the development server:
+---
+
+## ✨ Features
+
+- **Paste & Parse**: Paste grades from HTML tables, spreadsheets, or plain text.
+- **Statistics**: Instantly see average, median, min, max, pass rate, and standard deviation.
+- **Charts**: Visualize grade distributions and pass/fail rates with interactive charts.
+- **Normalization**: Convert grades to a 0-10 scale for easy comparison.
+- **Custom Options**: Set max grade value and pass threshold.
+- **Sorting**: Sort by student name, grade, or pass/fail status.
+- **Shareable Links**: Share results and options via a single URL (data is encoded in the link, no backend needed).
+- **Undo**: Restore the last cleared grades with one click.
+- **Mobile Friendly**: Responsive design for all devices.
+
+---
+
+## 🚀 Getting Started
+
+1. **Install dependencies:**
+
+```bash
+npm install
+```
+
+2. **Run the development server:**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Open your browser:**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Go to [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 📝 Usage
 
-To learn more about Next.js, take a look at the following resources:
+1. **Paste grades** into the input box (supports HTML tables, tab-separated, or CSV formats).
+2. **Submit** to view statistics and charts.
+3. **Adjust options** (max grade, pass threshold, normalization) as needed.
+4. **Share**: Click the Share button to copy a link with your data and options.
+5. **Switch theme**: Use the toggle in the top left for dark/light mode.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛡️ Privacy
 
-## Deploy on Vercel
+- **No data is sent to a server.** All parsing and analysis happens in your browser.
+- **Sharing**: When you share a link, the data is compressed and encoded in the URL.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠️ Tech Stack
+
+- [Next.js 15 (App Router)](https://nextjs.org/)
+- [React](https://react.dev/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.com/) (for modern UI components)
+- [Recharts](https://recharts.org/) (for charts)
+- [lz-string](https://github.com/pieroxy/lz-string) (for URL data compression)
+
+---
+
+## 📦 Deployment
+
+Deploy easily on [Vercel](https://vercel.com/) or any platform that supports Next.js.
+
+---
+
+## 📄 License
+
+MIT
