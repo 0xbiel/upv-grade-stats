@@ -19,7 +19,6 @@ A modern web app to parse, analyze, and share student grades. Paste your grades 
 ---
 
 ## 🚀 Getting Started
-
 1. **Install dependencies:**
 
 ```bash
@@ -29,46 +28,28 @@ npm install
 2. **Run the development server:**
 
 ```bash
-npm run dev
 ```
 
 3. **Open your browser:**
 
-Go to [http://localhost:3000](http://localhost:3000)
-
----
 
 ## 📝 Usage
 
 1. **Paste grades** into the input box (supports HTML tables, tab-separated, or CSV formats).
 2. **Submit** to view statistics and charts.
-3. **Adjust options** (max grade, pass threshold, normalization) as needed.
-4. **Share**: Click the Share button to copy a link with your data and options.
-5. **Switch theme**: Use the toggle in the top left for dark/light mode.
 
 ---
-
-## 🛡️ Privacy
 
 - **No data is sent to a server.** All parsing and analysis happens in your browser.
-- **Sharing**: When you share a link, the data is compressed and encoded in the URL.
 
 ---
 
-## 🛠️ Tech Stack
-
-- [Next.js 15 (App Router)](https://nextjs.org/)
-- [React](https://react.dev/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [shadcn/ui](https://ui.shadcn.com/) (for modern UI components)
 - [Recharts](https://recharts.org/) (for charts)
-- [lz-string](https://github.com/pieroxy/lz-string) (for URL data compression)
 
 ---
 
 ## 📦 Deployment
 
-Deploy easily on [Vercel](https://vercel.com/) or any platform that supports Next.js.
 
 ---
 

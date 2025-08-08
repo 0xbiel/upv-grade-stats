@@ -14,6 +14,8 @@ import { parseGrades } from "@/lib/parser";
 import { toast } from "sonner";
 import GradeView from "@/components/grade-view";
 import LZString from "lz-string";
+import { decryptToBytes } from "@/lib/crypto";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Also store options in the URL data
 interface GradeShareData {
@@ -39,12 +41,49 @@ export default function Home() {
   const [passThreshold, setPassThreshold] = useState<number>(5);
   const [normalizeGrades, setNormalizeGrades] = useState<boolean>(false);
 
-  // Load grades and options from URL if present
+  // Load grades and options from URL if present (legacy ?data= or new ?share=uuid-key)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const share = params.get("share");
     const encoded = params.get("data");
-    if (encoded) {
+    if (share) {
+      (async () => {
+        try {
+          // Prefer strict UUID + key format: <uuid>-<hex>
+          let id: string | null = null;
+          let keyHex: string | null = null;
+          const m = share.match(/^([0-9a-fA-F-]{36})-([0-9a-fA-F]+)$/);
+          if (m) {
+            id = m[1];
+            keyHex = m[2];
+          } else {
+            // Fallback: split at last hyphen
+            const lastDash = share.lastIndexOf('-');
+            if (lastDash === -1) return;
+            id = share.slice(0, lastDash);
+            keyHex = share.slice(lastDash + 1);
+          }
+          if (!id || !keyHex) return;
+          const res = await fetch(`/api/share?id=${encodeURIComponent(id)}`);
+          if (!res.ok) return; // handle errors silently
+          const { payload } = await res.json();
+          const bytes = await decryptToBytes(payload, keyHex);
+          const json = LZString.decompressFromUint8Array(bytes) || "";
+          const data: GradeShareData = JSON.parse(json || "{}") as GradeShareData;
+          if (data && Array.isArray(data.grades) && data.grades.length > 0) {
+            setGrades(data.grades);
+            if (data.options) {
+              setMaxPossibleGrade(data.options.maxPossibleGrade ?? 10);
+              setPassThreshold(data.options.passThreshold ?? 5);
+              setNormalizeGrades(data.options.normalizeGrades ?? false);
+            }
+          }
+        } catch {
+          // ignore invalid
+        }
+      })();
+    } else if (encoded) {
       try {
         const json = LZString.decompressFromEncodedURIComponent(encoded);
         const data: GradeShareData = JSON.parse(json || "{}") as GradeShareData;
@@ -62,7 +101,7 @@ export default function Home() {
     }
   }, []);
 
-  // Update the URL automatically when grades or options change
+  // Update the URL automatically when grades or options change (legacy path only)
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (grades.length > 0) {
@@ -77,7 +116,12 @@ export default function Home() {
         };
         const json = JSON.stringify(data);
         const compressed = LZString.compressToEncodedURIComponent(json);
-        const url = `${window.location.pathname}?data=${compressed}`;
+        // Prefer keeping share param if present; otherwise, fall back to legacy ?data=
+        const params = new URLSearchParams(window.location.search);
+        const hasShare = params.has("share");
+        const url = hasShare
+          ? `${window.location.pathname}?${params.toString()}`
+          : `${window.location.pathname}?data=${compressed}`;
         window.history.replaceState({}, '', url);
       } catch {
         // ignore
@@ -110,6 +154,22 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300">
+      {/* Top-right toolbar: one place for theme toggle (always) and New Grades (when grades present) */}
+      <div className="fixed top-6 right-6 z-30 flex items-center gap-2">
+        {grades.length > 0 && (
+          <Button
+            variant="outline"
+            size="default"
+            className="shadow-md"
+            onClick={() => {
+              window.location.href = "/";
+            }}
+          >
+            New Grades
+          </Button>
+        )}
+        <ThemeToggle />
+      </div>
       {grades.length > 0 ? (
         <div className="flex flex-col items-center justify-center min-h-screen p-8 w-[100%]">
           <div className="flex items-center w-full max-w-2xl mb-4 justify-center relative">
@@ -118,26 +178,12 @@ export default function Home() {
               alt="Description of image"
               width={200}
               height={100}
-              className="hover:scale-105 transition-transform duration-300 hover:cursor-pointer"
+              className="hover:scale-105 transition-transform duration-300 hover:cursor-pointer dark:invert"
               onClick={() => {
-                setLastGrades(grades);
-                setGrades([]);
-                setValue("");
+                window.location.href = "/";
               }}
             />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="fixed top-6 right-8 z-30 shadow-md"
-            onClick={() => {
-              setLastGrades(grades);
-              setGrades([]);
-              setValue("");
-            }}
-          >
-            New Grades
-          </Button>
           <GradeView
             grades={grades}
             maxPossibleGrade={maxPossibleGrade}
@@ -150,13 +196,15 @@ export default function Home() {
         </div>
       ) : (
         <div className="flex flex-col items-center w-full mt-[25vh]">
+          <div className="relative">
           <Image
             src="/logo-upv.svg"
             alt="Description of image"
             width={200}
             height={100}
-            className="mb-4"
+            className="mb-4 dark:invert"
           />
+          </div>
           <div className="mb-4 text-2xl font-medium text-center">Grade Stats</div>
           {lastGrades && lastGrades.length > 0 && (
             <Button
@@ -174,7 +222,7 @@ export default function Home() {
           
           <form
             onSubmit={handleSubmit}
-            className="border-input bg-white focus-within:ring-ring/15 relative max-w-[90%] w-full md:max-w-3xl mx-auto mb-6 flex items-center rounded-[12px] border px-6 py-4 text-base focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-0 min-h-[100px]"
+            className="border-input bg-white dark:bg-input/30 dark:border-input focus-within:ring-ring/15 relative max-w-[90%] w-full md:max-w-3xl mx-auto mb-6 flex items-center rounded-[12px] border px-6 py-4 text-base focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-0 min-h-[100px]"
           >
             <AutoResizeTextarea
               value={value}

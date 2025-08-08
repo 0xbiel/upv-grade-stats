@@ -9,18 +9,19 @@ import {
 } from "@/components/ui/table";
 import { Grade } from "@/lib/types";
 import { Card } from "@/components/ui/card";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Settings, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronDown, ChevronUp, Settings, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { 
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
   PieChart, Pie, Cell, Label as ChartLabel
 } from "recharts";
 import { Switch } from "@/components/ui/switch";
-import { Copy } from "lucide-react";
+import { Copy, Search } from "lucide-react";
 import LZString from "lz-string";
+import { encryptBytes } from "@/lib/crypto";
 
 // Define sorting types
 type SortColumn = 'studentName' | 'grade' | 'status';
@@ -66,26 +67,157 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
   const [sortColumn, setSortColumn] = useState<SortColumn>('studentName');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  
+  // Sorting preferences
+  const [sortByLastName, setSortByLastName] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('grade-stats-sort-by-lastname') === 'true';
+    }
+    return false;
+  });
+
+  // Persist sorting preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('grade-stats-sort-by-lastname', sortByLastName.toString());
+    }
+  }, [sortByLastName]);
+
+  // Helper function to normalize names for better searching and sorting
+  const normalizeName = useCallback((name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      // Assume last part is surname, rest is given names
+      const surname = parts[parts.length - 1];
+      const givenNames = parts.slice(0, -1).join(' ');
+      return { 
+        normalized: `${surname}, ${givenNames}`, 
+        original: name, 
+        surname, 
+        givenNames,
+        // For sorting by first name, use original order
+        firstNameSort: name,
+        // For sorting by last name, use surname first
+        lastNameSort: `${surname}, ${givenNames}`
+      };
+    }
+    return { 
+      normalized: name, 
+      original: name, 
+      surname: name, 
+      givenNames: '',
+      firstNameSort: name,
+      lastNameSort: name
+    };
+  }, []);
+
+  // Helper function to check if a name matches any of the search terms
+  const nameMatchesSearch = useCallback((studentName: string, searchTerms: string[]) => {
+    const { normalized, original, surname, givenNames } = normalizeName(studentName);
+    
+    return searchTerms.some(term => {
+      const cleanTerm = term.trim().toLowerCase();
+      if (!cleanTerm) return false;
+      
+      // Check against original name (First Last format)
+      if (original.toLowerCase().includes(cleanTerm)) return true;
+      
+      // Check against normalized name (Last, First format)
+      if (normalized.toLowerCase().includes(cleanTerm)) return true;
+      
+      // Check against individual name parts
+      if (surname.toLowerCase().includes(cleanTerm)) return true;
+      if (givenNames.toLowerCase().includes(cleanTerm)) return true;
+      
+      // Check if any individual word in the original name matches
+      if (original.toLowerCase().split(/\s+/).some(word => word.includes(cleanTerm))) return true;
+      
+      // Check if the term matches a "Last, First" pattern user might search for
+      const termParts = cleanTerm.split(',').map(p => p.trim());
+      if (termParts.length === 2 && termParts[0] && termParts[1]) {
+        const [searchSurname, searchGivenNames] = termParts;
+        return surname.toLowerCase().includes(searchSurname) && 
+               givenNames.toLowerCase().includes(searchGivenNames);
+      }
+      
+      // Check if the term matches a "First Last" pattern user might search for
+      const wordParts = cleanTerm.split(/\s+/);
+      if (wordParts.length >= 2) {
+        const allWordsMatch = wordParts.every(word => 
+          original.toLowerCase().includes(word) ||
+          surname.toLowerCase().includes(word) ||
+          givenNames.toLowerCase().includes(word)
+        );
+        if (allWordsMatch) return true;
+      }
+      
+      return false;
+    });
+  }, [normalizeName]);
+
+  // Helper function to display name according to current sorting preference
+  const getDisplayName = (studentName: string) => {
+    const { original, surname, givenNames } = normalizeName(studentName);
+    
+    if (sortByLastName && surname && givenNames) {
+      // Display as "Last, First" when sorting by last name
+      return `${surname}, ${givenNames}`;
+    }
+    
+    // Display as "First Last" when sorting by first name or if name parsing failed
+    return original;
+  };
+
   const [showShare, setShowShare] = useState(false);
-    const [copied, setCopied] = useState(false);
-    const shareUrl = useMemo(() => {
-      if (!grades.length) return window.location.href;
+  const [copied, setCopied] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string>("");
+
+  // Prepare and upload encrypted share when modal opens or inputs change while modal visible
+  useEffect(() => {
+    const run = async () => {
+      setShareError("");
+      if (!showShare) return;
+      if (!grades.length) {
+        setShareUrl(window.location.href);
+        return;
+      }
       try {
+        setIsSharing(true);
         const data: GradeShareData = {
           grades,
-          options: {
-            maxPossibleGrade,
-            passThreshold,
-            normalizeGrades,
-          },
+          options: { maxPossibleGrade, passThreshold, normalizeGrades },
         };
         const json = JSON.stringify(data);
-        const encoded = LZString.compressToEncodedURIComponent(json);
-        return `${window.location.origin}${window.location.pathname}?data=${encoded}`;
-      } catch {
-        return window.location.href;
+        // compress then encrypt
+        const compressed = LZString.compressToUint8Array(json);
+        const { payload, keyHex } = await encryptBytes(compressed);
+        // store in Supabase via API
+        const res = await fetch("/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payload, ttlSeconds: 60 * 60 * 24 * 7 }), // 7 days
+        });
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.error || `Failed to create share (${res.status})`);
+        }
+        const { id } = await res.json();
+        const url = `${window.location.origin}${window.location.pathname}?share=${id}-${keyHex}`;
+        setShareUrl(url);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Failed to create share";
+        setShareError(msg);
+        setShareUrl(window.location.href);
+      } finally {
+        setIsSharing(false);
       }
-    }, [grades, maxPossibleGrade, passThreshold, normalizeGrades]);
+    };
+    run();
+  }, [showShare, grades, maxPossibleGrade, passThreshold, normalizeGrades]);
   
 
   // Compute normalized grades when needed
@@ -184,15 +316,39 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
   // Calculate the total number of students for the pie chart center
   const totalStudents = displayGrades.length;
 
-  // Sorted grades for display
+  // Sorted and filtered grades for display
   const sortedGrades = useMemo(() => {
     if (!displayGrades.length) return [];
     
-    return [...displayGrades].sort((a, b) => {
+    // Parse search terms (split by comma and filter empty strings)
+    const searchTerms = searchTerm.split(',').map(term => term.trim()).filter(term => term.length > 0);
+    
+    // First filter by search terms
+    const filteredGrades = displayGrades.filter(grade => {
+      if (searchTerms.length === 0) return true;
+      return nameMatchesSearch(grade.studentName, searchTerms);
+    });
+    
+    // Then sort the filtered results
+    return filteredGrades.sort((a, b) => {
       if (sortColumn === 'studentName') {
+        let aName, bName;
+        
+        if (sortByLastName) {
+          // Sort by last name first
+          const aNorm = normalizeName(a.studentName);
+          const bNorm = normalizeName(b.studentName);
+          aName = aNorm.lastNameSort;
+          bName = bNorm.lastNameSort;
+        } else {
+          // Sort by first name (original order)
+          aName = a.studentName;
+          bName = b.studentName;
+        }
+        
         return sortDirection === 'asc'
-          ? a.studentName.localeCompare(b.studentName)
-          : b.studentName.localeCompare(a.studentName);
+          ? aName.localeCompare(bName)
+          : bName.localeCompare(aName);
       } 
       
       if (sortColumn === 'grade') {
@@ -217,7 +373,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         ? (aPass ? 1 : -1)
         : (aPass ? -1 : 1);
     });
-  }, [displayGrades, sortColumn, sortDirection, normalizedPassThreshold]);
+  }, [displayGrades, sortColumn, sortDirection, normalizedPassThreshold, searchTerm, sortByLastName, nameMatchesSearch, normalizeName]);
 
   // Function to handle sort changes
   const handleSort = (column: SortColumn) => {
@@ -272,7 +428,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
       </div>
       {/* Share Modal */}
       {showShare && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl p-8 w-full max-w-lg relative animate-in fade-in-50 slide-in-from-top-5 border border-gray-200 dark:border-zinc-800">
             <button
               aria-label="Close"
@@ -290,8 +446,14 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
                 value={shareUrl}
                 readOnly
                 onFocus={e => e.target.select()}
-                className="mb-2 text-sm px-3 py-2 border rounded w-full bg-gray-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:border-primary"
+                className="mb-2 text-sm px-3 py-2 border rounded w-full bg-gray-50 dark:bg-zinc-800 dark:focus:bg-zinc-900 focus:bg-white focus:border-primary"
               />
+              {isSharing && (
+                <div className="text-xs text-muted-foreground">Preparing secure link…</div>
+              )}
+              {shareError && (
+                <div className="text-xs text-red-600">{shareError}</div>
+              )}
               <Button
                 type="button"
                 variant="secondary"
@@ -303,20 +465,17 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
                 }}
                 disabled={copied}
               >
-                <span className={`transition-all duration-300 flex items-center ${copied ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-                  <Copy className="h-4 w-4" /> Copy Link
-                </span>
-                <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none px-3 py-1 rounded text-white text-xs font-semibold shadow transition-all duration-300 flex items-center ${copied ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-                  style={{background: 'linear-gradient(90deg,#22c55e 0%,#16a34a 100%)'}}>
-                  <svg className="mr-1 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Copied!
+                <span className={`transition-all duration-10 flex items-center gap-1 ${copied ? 'scale-90' : 'scale-100'}`}>
+                  <Copy className={`h-4 w-4 ${copied ? 'hidden' : ''}`} />
+                  <svg className={`mr-1 h-4 w-4 ${copied ? '' : 'hidden'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                   {copied ? 'Copied!' : 'Copy Link'}
                 </span>
               </Button>
             </div>
             <div className="text-xs text-muted-foreground mt-4 text-center bg-gray-50 dark:bg-zinc-800 rounded p-2">
               <b>How to share:</b> Send this link to anyone. When they open it, the grades and options will load automatically.<br/>
-              <b>Note:</b> The data is stored in the link, not on a server.<br/>
-              <span className="text-[10px] text-gray-400">Link may be long for large datasets.</span>
+              <b>Privacy:</b> Data is compressed, encrypted in your browser, and stored on Supabase. The link only contains an id and the decryption key.<br/>
+              <span className="text-[10px] text-gray-400">Shares expire automatically after 7 days by default.</span>
             </div>
           </div>
         </div>
@@ -416,35 +575,42 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         {hasValidChartData ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
-          data={histogramData} 
-          margin={{ top: 5, right: 20, left: 0, bottom: 25 }}
+              data={histogramData} 
+              margin={{ top: 5, right: 20, left: 0, bottom: 25 }}
             >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis 
-            dataKey="range" 
-            tickMargin={10} 
-            axisLine={true}
-          />
-          <YAxis 
-            allowDecimals={false}
-            label={{ 
-              value: 'Number of Students', 
-              angle: -90, 
-              position: 'insideLeft',
-              style: { textAnchor: 'middle' }
-            }}
-          />
-          <Tooltip 
-            formatter={(value: number) => [`${value} students`, 'Count']}
-            labelFormatter={(label) => `Grade range: ${label}`}
-          />
-          <Bar 
-            dataKey="count" 
-            fill="hsl(var(--primary))"
-            fillOpacity={0.9}
-            name="Count"
-            radius={[4, 4, 0, 0]}
-          />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis 
+                dataKey="range" 
+                tickMargin={10} 
+                axisLine={{ stroke: 'var(--muted-foreground)' }}
+                tick={{ fill: 'var(--muted-foreground)' }}
+              />
+              <YAxis 
+                allowDecimals={false}
+                stroke="var(--muted-foreground)"
+                tick={{ fill: 'var(--muted-foreground)' }}
+                label={{ 
+                  value: 'Number of Students', 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  style: { textAnchor: 'middle', fill: 'var(--muted-foreground)' }
+                }}
+              />
+              <Tooltip 
+                formatter={(value: number) => [`${value} students`, 'Count']}
+                labelFormatter={(label) => `Grade range: ${label}`}
+                contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', color: 'var(--popover-foreground)' }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+                wrapperStyle={{ outline: 'none' }}
+              />
+              <Bar 
+                dataKey="count" 
+                fill="var(--primary)"
+                fillOpacity={0.9}
+                name="Count"
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -452,19 +618,6 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
             No grade data available to display chart
           </div>
         )}
-          </div>
-          <div className="mt-4 text-sm text-muted-foreground flex justify-between items-center md:w-full">
-        <span>Grade distribution by ranges</span>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-primary"></div>
-            <span>Not passing</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-success"></div>
-            <span>Passing</span>
-          </div>
-        </div>
           </div>
         </Card>
         <Card className="p-4 col-span-full md:col-span-3">
@@ -532,6 +685,10 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
               `${value} students (${((value / totalStudents) * 100).toFixed(2)}%)`, 
               name
             ]}
+            contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', color: 'var(--popover-foreground)' }}
+            labelStyle={{ color: 'var(--popover-foreground)' }}
+            itemStyle={{ color: 'var(--popover-foreground)' }}
+            wrapperStyle={{ outline: 'none' }}
           />
             </PieChart>
           </ResponsiveContainer>
@@ -562,22 +719,69 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
       </div>
 
       <div className="mb-4 text-2xl font-bold text-center">Grades Table</div>
+      
+      {/* Search input */}
+      <div className="mb-4 flex items-center gap-2 max-w-2xl">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by first name, last name, or full name... (use commas for multiple)"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8 pr-8"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <span className="text-sm text-muted-foreground">
+            {sortedGrades.length} of {displayGrades.length} students
+          </span>
+        )}
+      </div>
+      
+      {/* Search help text */}
+      {searchTerm && (
+        <div className="mb-3 text-xs text-muted-foreground max-w-2xl">
+          💡 Tip: Use commas to search multiple names (e.g., &quot;John, Maria, Smith&quot;). Search works with first names, last names, and full names.
+        </div>
+      )}
+      
       <div className="rounded-md border">
         <Table className="w-full">
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted text-muted-foreground">
               <TableHead className="w-[60px] text-center">#</TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-black/5"
                 onClick={() => handleSort('studentName')}
               >
-                <div className="flex items-center">
-                  Student Name
-                  {getSortIcon('studentName')}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    Student Name
+                    {getSortIcon('studentName')}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSortByLastName(!sortByLastName);
+                    }}
+                    className="ml-2 text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                    title={`Currently sorting by ${sortByLastName ? 'Last Name' : 'First Name'}`}
+                  >
+                    {sortByLastName ? 'Last' : 'First'}
+                  </button>
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-black/5"
                 onClick={() => handleSort('grade')}
               >
                 <div className="flex items-center">
@@ -587,7 +791,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
               </TableHead>
               {normalizeGrades && <TableHead>Original Grade</TableHead>}
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-black/5"
                 onClick={() => handleSort('status')}
               >
                 <div className="flex items-center">
@@ -603,7 +807,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
                 <TableCell className="text-center font-mono text-muted-foreground">
                   {index + 1}
                 </TableCell>
-                <TableCell>{grade.studentName}</TableCell>
+                <TableCell>{getDisplayName(grade.studentName)}</TableCell>
                 <TableCell>{grade.grade.toFixed(2)}</TableCell>
                 {normalizeGrades && (
                   <TableCell>
@@ -623,7 +827,10 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
           <TableFooter>
             <TableRow>
               <TableHead colSpan={normalizeGrades ? 5 : 4}>
-                Total Students: {displayGrades.length}
+                {searchTerm 
+                  ? `Showing ${sortedGrades.length} of ${displayGrades.length} students` 
+                  : `Total Students: ${displayGrades.length}`
+                }
               </TableHead>
             </TableRow>
           </TableFooter>
