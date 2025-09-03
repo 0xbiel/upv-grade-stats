@@ -14,9 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Settings, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
-import { 
+import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
-  PieChart, Pie, Cell, Label as ChartLabel
+  PieChart, Pie, Cell, Label as ChartLabel, Legend
 } from "recharts";
 import { Switch } from "@/components/ui/switch";
 import { Copy, Search } from "lucide-react";
@@ -89,25 +89,41 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
   const normalizeName = useCallback((name: string) => {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
-      // Assume last part is surname, rest is given names
-      const surname = parts[parts.length - 1];
-      const givenNames = parts.slice(0, -1).join(' ');
-      return { 
-        normalized: `${surname}, ${givenNames}`, 
-        original: name, 
-        surname, 
+      // Handle Spanish names with multiple surnames
+      let primarySurname = '';
+      let givenNames = '';
+      let fullSurnames = '';
+
+      if (parts.length >= 3) {
+        // Use father's surname (first surname) as primary for sorting
+        givenNames = parts[0]; // First name
+        primarySurname = parts[1]; // Father's surname (primary for sorting)
+        fullSurnames = parts.slice(1).join(' '); // Both surnames for display
+      } else {
+        // Standard 2-part name
+        primarySurname = parts[parts.length - 1];
+        fullSurnames = parts[parts.length - 1];
+        givenNames = parts.slice(0, -1).join(' ');
+      }
+
+      return {
+        normalized: `${fullSurnames}, ${givenNames}`,
+        original: name,
+        surname: primarySurname,
         givenNames,
+        fullSurnames,
         // For sorting by first name, use original order
         firstNameSort: name,
-        // For sorting by last name, use surname first
-        lastNameSort: `${surname}, ${givenNames}`
+        // For sorting by last name, use primary surname first for sorting
+        lastNameSort: `${primarySurname}, ${givenNames}`
       };
     }
-    return { 
-      normalized: name, 
-      original: name, 
-      surname: name, 
+    return {
+      normalized: name,
+      original: name,
+      surname: name,
       givenNames: '',
+      fullSurnames: name,
       firstNameSort: name,
       lastNameSort: name
     };
@@ -159,13 +175,13 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
 
   // Helper function to display name according to current sorting preference
   const getDisplayName = (studentName: string) => {
-    const { original, surname, givenNames } = normalizeName(studentName);
-    
-    if (sortByLastName && surname && givenNames) {
-      // Display as "Last, First" when sorting by last name
-      return `${surname}, ${givenNames}`;
+    const { original, fullSurnames, givenNames } = normalizeName(studentName);
+
+    if (sortByLastName && fullSurnames && givenNames) {
+      // Display as "Last, First" when sorting by last name (show both surnames)
+      return `${fullSurnames}, ${givenNames}`;
     }
-    
+
     // Display as "First Last" when sorting by first name or if name parsing failed
     return original;
   };
@@ -175,6 +191,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
   const [shareUrl, setShareUrl] = useState<string>("");
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<string>("");
+  const [isLoadingCharts, setIsLoadingCharts] = useState(true);
 
   // Prepare and upload encrypted share when modal opens or inputs change while modal visible
   useEffect(() => {
@@ -271,6 +288,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         0,
       ) / displayGrades.length;
     setStandardDeviation(Math.sqrt(variance));
+    setIsLoadingCharts(false);
   }, [displayGrades, normalizedPassThreshold]);
 
   // Generate histogram data
@@ -303,18 +321,19 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
   // Create data for the pie chart
   const pieChartData = useMemo(() => {
     if (displayGrades.length === 0) return [];
-    
+
     const passed = displayGrades.filter(grade => grade.grade >= normalizedPassThreshold).length;
     const failed = displayGrades.length - passed;
-    
+
     return [
-      { name: "Passed", value: passed, fill: "#10b981" }, // Direct green color
-      { name: "Failed", value: failed, fill: "#ef4444" }, // Direct red color
+      { name: "Passed", value: passed, fill: "var(--chart-passed)" },
+      { name: "Failed", value: failed, fill: "var(--chart-failed)" },
     ];
   }, [displayGrades, normalizedPassThreshold]);
   
   // Calculate the total number of students for the pie chart center
   const totalStudents = displayGrades.length;
+
 
   // Sorted and filtered grades for display
   const sortedGrades = useMemo(() => {
@@ -399,7 +418,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
   };
 
   return (
-    <div className="overflow-x-auto w-full max-w-[90%] mx-auto">
+    <div className="overflow-x-auto w-full max-w-[90%] lg:max-w-full mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div className="text-2xl font-bold">
           Grade Statistics
@@ -481,7 +500,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         </div>
       )}
       {showOptions && (
-        <Card className="p-4 mb-6 animate-in fade-in-50 slide-in-from-top-5 duration-300">
+        <Card className="p-4 mb-6 animate-in fade-in-50 slide-in-from-top-5 duration-300 flat-card">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="gradeScale">Maximum Grade Value</Label>
@@ -538,81 +557,138 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         </Card>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-        <Card className="p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold">Average</span>
-          <span className="text-2xl">{avarage.toFixed(2)}</span>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-6">
+        <Card className="p-5 flex flex-col items-center flat-card">
+          <span className="text-lg font-semibold text-muted-foreground">Average</span>
+          <span className="text-3xl font-bold text-foreground mt-1">{avarage.toFixed(2)}</span>
         </Card>
-        <Card className="p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold">Median</span>
-          <span className="text-2xl">{median.toFixed(2)}</span>
+        <Card className="p-5 flex flex-col items-center flat-card">
+          <span className="text-lg font-semibold text-muted-foreground">Median</span>
+          <span className="text-3xl font-bold text-foreground mt-1">{median.toFixed(2)}</span>
         </Card>
-        <Card className="p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold">Max Grade</span>
-          <span className="text-2xl">{maxGrade.toFixed(2)}</span>
+        <Card className="p-5 flex flex-col items-center flat-card">
+          <span className="text-lg font-semibold text-muted-foreground">Max Grade</span>
+          <span className="text-3xl font-bold text-foreground mt-1">{maxGrade.toFixed(2)}</span>
         </Card>
-        <Card className="p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold">Min Grade</span>
-          <span className="text-2xl">{minGrade.toFixed(2)}</span>
+        <Card className="p-5 flex flex-col items-center flat-card">
+          <span className="text-lg font-semibold text-muted-foreground">Min Grade</span>
+          <span className="text-3xl font-bold text-foreground mt-1">{minGrade.toFixed(2)}</span>
         </Card>
-        <Card className="p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold">Pass Rate</span>
-          <span className="text-2xl">{passRate.toFixed(2)}%</span>
+        <Card className="p-5 flex flex-col items-center flat-card">
+          <span className="text-lg font-semibold text-muted-foreground">Pass Rate</span>
+          <span className="text-3xl font-bold text-foreground mt-1">{passRate.toFixed(2)}%</span>
         </Card>
-        <Card className="p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold">Standard Deviation</span>
-          <span className="text-2xl">{standardDeviation.toFixed(2)}</span>
+        <Card className="p-5 flex flex-col items-center flat-card">
+          <span className="text-lg font-semibold text-muted-foreground">Standard Deviation</span>
+          <span className="text-3xl font-bold text-foreground mt-1">{standardDeviation.toFixed(2)}</span>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-10 gap-6 mb-6">
-        <Card className="p-4 flex flex-col col-span-full md:col-span-7">
-          <div className="mb-4 text-xl font-semibold">
+      <div className="grid grid-cols-1 md:grid-cols-10 gap-8 mb-8">
+        <Card className="p-6 flex flex-col col-span-full md:col-span-7 flat-card">
+          <div className="mb-6 text-xl font-semibold">
         Grade Distribution
         {normalizeGrades && maxPossibleGrade !== 10 && <span className="ml-2 text-sm font-normal text-muted-foreground">(normalized out of 10)</span>}
           </div>
-          <div className="h-[300px] w-full">
-        {hasValidChartData ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={histogramData} 
-              margin={{ top: 5, right: 20, left: 0, bottom: 25 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <XAxis 
-                dataKey="range" 
-                tickMargin={10} 
-                axisLine={{ stroke: 'var(--muted-foreground)' }}
-                tick={{ fill: 'var(--muted-foreground)' }}
-              />
-              <YAxis 
-                allowDecimals={false}
-                stroke="var(--muted-foreground)"
-                tick={{ fill: 'var(--muted-foreground)' }}
-                label={{ 
-                  value: 'Number of Students', 
-                  angle: -90, 
-                  position: 'insideLeft',
-                  style: { textAnchor: 'middle', fill: 'var(--muted-foreground)' }
-                }}
-              />
-              <Tooltip 
-                formatter={(value: number) => [`${value} students`, 'Count']}
-                labelFormatter={(label) => `Grade range: ${label}`}
-                contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', color: 'var(--popover-foreground)' }}
-                labelStyle={{ color: 'var(--popover-foreground)' }}
-                itemStyle={{ color: 'var(--popover-foreground)' }}
-                wrapperStyle={{ outline: 'none' }}
-              />
-              <Bar 
-                dataKey="count" 
-                fill="var(--primary)"
-                fillOpacity={0.9}
-                name="Count"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="w-full" style={{ height: '350px', minHeight: '200px' }}>
+        {isLoadingCharts ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <div className="animate-pulse flex space-x-4 w-full">
+              <div className="flex-1 space-y-4 py-1">
+                <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-5/6"></div>
+                  <div className="h-4 bg-muted rounded w-4/6"></div>
+                  <div className="h-4 bg-muted rounded w-3/6"></div>
+                  <div className="h-4 bg-muted rounded w-2/6"></div>
+                </div>
+              </div>
+              <div className="flex-1 space-y-4 py-1">
+                <div className="h-4 bg-muted rounded w-1/2"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-5/6"></div>
+                  <div className="h-4 bg-muted rounded w-4/6"></div>
+                  <div className="h-4 bg-muted rounded w-3/6"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : hasValidChartData ? (
+          <div role="img" aria-label={`Grade distribution histogram showing ${displayGrades.length} students across grade ranges`}>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart
+                data={histogramData}
+                margin={{ top: 5, right: 20, left: 0, bottom: 25 }}
+                className="chart-enter"
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--muted-foreground)" strokeOpacity={0.3} />
+                <XAxis
+                  dataKey="range"
+                  tickMargin={10}
+                  axisLine={{ stroke: 'var(--muted-foreground)' }}
+                  tick={{ fill: 'var(--muted-foreground)' }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  stroke="var(--muted-foreground)"
+                  tick={{ fill: 'var(--muted-foreground)' }}
+                  label={{
+                    value: 'Number of Students',
+                    angle: -90,
+                    position: 'insideLeft',
+                    style: { textAnchor: 'middle', fill: 'var(--muted-foreground)' }
+                  }}
+                />
+                <Tooltip
+                  formatter={(value: number) => [`${value} students`, 'Count']}
+                  labelFormatter={(label) => `Grade range: ${label}`}
+                  contentStyle={{
+                    background: 'var(--tooltip-bg)',
+                    backdropFilter: 'var(--tooltip-backdrop)',
+                    border: '1px solid var(--tooltip-border)',
+                    color: 'var(--foreground)',
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 32px oklch(0 0 0 / 0.1)',
+                    fontSize: '14px'
+                  }}
+                  labelStyle={{ color: 'var(--foreground)' }}
+                  itemStyle={{ color: 'var(--foreground)' }}
+                  wrapperStyle={{ outline: 'none' }}
+                  cursor={false}
+                  position={{ y: -10 }}
+                />
+                <Bar
+                  dataKey="count"
+                  fill="var(--chart-1)"
+                  fillOpacity={0.8}
+                  name="Count"
+                  radius={[4, 4, 0, 0]}
+                  animationDuration={800}
+                  animationEasing="ease-out"
+                  className="stagger-bar chart-hover"
+                  onMouseEnter={(data, index) => {
+                    // Add hover effect by changing opacity
+                    const bars = document.querySelectorAll('.recharts-bar-rectangle');
+                    bars.forEach((bar, i) => {
+                      if (i !== index) {
+                        (bar as HTMLElement).style.opacity = '0.6';
+                      }
+                    });
+                  }}
+                  onMouseLeave={() => {
+                    // Reset opacity
+                    const bars = document.querySelectorAll('.recharts-bar-rectangle');
+                    bars.forEach((bar) => {
+                      (bar as HTMLElement).style.opacity = '0.8';
+                    });
+                  }}
+                >
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             No grade data available to display chart
@@ -620,100 +696,134 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         )}
           </div>
         </Card>
-        <Card className="p-4 col-span-full md:col-span-3">
-          <div className="mb-4 text-xl font-semibold text-center">
+        <Card className="p-6 col-span-full md:col-span-3 flat-card">
+          <div className="mb-6 text-xl font-semibold text-center">
         Pass/Fail Distribution
         {normalizeGrades && maxPossibleGrade !== 10 && <span className="ml-2 text-sm font-normal text-muted-foreground">(normalized out of 10)</span>}
           </div>
-          <div className="h-[300px] w-full">
-        {totalStudents > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-          <Pie
-            data={pieChartData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={70} // Increased inner radius for slimmer look
-            outerRadius={90}
-            paddingAngle={4} // Increased padding angle
-            stroke="#fff" // White stroke for better separation
-            strokeWidth={3}
-          >
-            {pieChartData.map((entry, index) => (
-              <Cell 
-            key={`cell-${index}`} 
-            fill={entry.fill} 
-              />
-            ))}
-            <ChartLabel
-              content={({ viewBox }) => {
-            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-              return (
-                <g>
-              <text
-                x={viewBox.cx}
-                y={viewBox.cy}
-                textAnchor="middle"
-                dominantBaseline="middle"
-              >
-                <tspan
-                  x={viewBox.cx}
-                  y={((viewBox.cy ?? 0) - 10)}
-                  className="fill-foreground text-3xl font-bold"
-                >
-                  {passRate.toFixed(0)}%
-                </tspan>
-                <tspan
-                  x={viewBox.cx}
-                  y={(viewBox.cy ?? 0) + 15}
-                  className="fill-muted-foreground text-sm"
-                >
-                  Pass Rate
-                </tspan>
-              </text>
-                </g>
-              )
-            }
-            return null;
+          <div className="w-full" style={{ height: '350px', minHeight: '200px' }}>
+        {isLoadingCharts ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <div className="animate-pulse">
+              <div className="w-32 h-32 bg-muted rounded-full"></div>
+              <div className="mt-4 space-y-2">
+                <div className="h-4 bg-muted rounded w-16 mx-auto"></div>
+                <div className="h-3 bg-muted rounded w-12 mx-auto"></div>
+              </div>
+            </div>
+          </div>
+        ) : totalStudents > 0 ? (
+          <div role="img" aria-label={`Pass/fail distribution pie chart showing ${passRate.toFixed(0)}% pass rate with ${pieChartData[0]?.value || 0} passed and ${pieChartData[1]?.value || 0} failed students`}>
+            <ResponsiveContainer width="100%" height={350}>
+              <PieChart className="chart-enter">
+            <Pie
+              data={pieChartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={70} // Increased inner radius for slimmer look
+              outerRadius={90}
+              paddingAngle={4} // Increased padding angle
+              cornerRadius={4} // Rounded corners for donut effect
+              fillOpacity={0.8} // 80% opacity to match bar chart
+              stroke="var(--chart-stroke)" // Theme-aware stroke for better accessibility
+              strokeWidth={3}
+              animationDuration={800}
+              animationEasing="ease-out"
+              className="pie-slice-enter chart-hover"
+              onMouseEnter={(data, index) => {
+                // Add hover effect by changing opacity
+                const sectors = document.querySelectorAll('.recharts-pie-sector');
+                sectors.forEach((sector, i) => {
+                  if (i !== index) {
+                    (sector as HTMLElement).style.opacity = '0.6';
+                  }
+                });
               }}
+              onMouseLeave={() => {
+                // Reset opacity
+                const sectors = document.querySelectorAll('.recharts-pie-sector');
+                sectors.forEach((sector) => {
+                  (sector as HTMLElement).style.opacity = '1';
+                });
+              }}
+            >
+              {pieChartData.map((entry, index) => (
+                <Cell
+                 key={`cell-${index}`}
+                 fill={entry.fill}
+                   />
+              ))}
+              <ChartLabel
+                content={({ viewBox }) => {
+              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                return (
+                  <g>
+                <text
+                  x={viewBox.cx}
+                  y={viewBox.cy}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  <tspan
+                    x={viewBox.cx}
+                    y={((viewBox.cy ?? 0) - 10)}
+                    className="fill-foreground text-3xl font-bold"
+                  >
+                    {passRate.toFixed(0)}%
+                  </tspan>
+                  <tspan
+                    x={viewBox.cx}
+                    y={(viewBox.cy ?? 0) + 15}
+                    className="fill-muted-foreground text-sm"
+                  >
+                    Pass Rate
+                  </tspan>
+                </text>
+                  </g>
+                )
+              }
+              return null;
+                }}
+              />
+            </Pie>
+            <Tooltip
+              formatter={(value: number, name) => [
+                `${value} students (${((value / totalStudents) * 100).toFixed(2)}%)`,
+                name
+              ]}
+              contentStyle={{
+                background: 'var(--tooltip-bg)',
+                backdropFilter: 'var(--tooltip-backdrop)',
+                border: '1px solid var(--tooltip-border)',
+                color: 'var(--foreground)',
+                borderRadius: '8px',
+                boxShadow: '0 8px 32px oklch(0 0 0 / 0.1)',
+                fontSize: '14px'
+              }}
+              labelStyle={{ color: 'var(--foreground)' }}
+              itemStyle={{ color: 'var(--foreground)' }}
+              wrapperStyle={{ outline: 'none' }}
+              cursor={false}
             />
-          </Pie>
-          <Tooltip
-            formatter={(value: number, name) => [
-              `${value} students (${((value / totalStudents) * 100).toFixed(2)}%)`, 
-              name
-            ]}
-            contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', color: 'var(--popover-foreground)' }}
-            labelStyle={{ color: 'var(--popover-foreground)' }}
-            itemStyle={{ color: 'var(--popover-foreground)' }}
-            wrapperStyle={{ outline: 'none' }}
-          />
-            </PieChart>
-          </ResponsiveContainer>
+            <Legend
+              wrapperStyle={{ color: 'var(--foreground)' }}
+              iconType="circle"
+            />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             No grade data available to display chart
           </div>
         )}
           </div>
-          <div className="mt-4 text-sm text-muted-foreground">
-            <div className="flex justify-center items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: "#10b981" }}></div>
-                <span>Passed: {pieChartData[0]?.value || 0} students</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: "#ef4444" }}></div>
-                <span>Failed: {pieChartData[1]?.value || 0} students</span>
-              </div>
-            </div>
-            <div className="text-center mt-2">
-              Pass threshold: {normalizeGrades 
-                ? `${normalizedPassThreshold.toFixed(2)}/10` 
-                : `${passThreshold}/${maxPossibleGrade}`}
-            </div>
+          <div className="mt-4 text-sm text-muted-foreground text-center">
+            Pass threshold: {normalizeGrades
+              ? `${normalizedPassThreshold.toFixed(2)}/10`
+              : `${passThreshold}/${maxPossibleGrade}`}
           </div>
         </Card>
       </div>
@@ -754,13 +864,13 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
         </div>
       )}
       
-      <div className="rounded-md border">
+      <div className="rounded-lg border flat-card">
         <Table className="w-full">
           <TableHeader>
             <TableRow className="bg-muted text-muted-foreground">
               <TableHead className="w-[60px] text-center">#</TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-black/5"
+              <TableHead
+                className="cursor-pointer hover:bg-muted/20"
                 onClick={() => handleSort('studentName')}
               >
                 <div className="flex items-center justify-between">
@@ -780,8 +890,8 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
                   </button>
                 </div>
               </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-black/5"
+              <TableHead
+                className="cursor-pointer hover:bg-muted/20"
                 onClick={() => handleSort('grade')}
               >
                 <div className="flex items-center">
@@ -790,8 +900,8 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
                 </div>
               </TableHead>
               {normalizeGrades && <TableHead>Original Grade</TableHead>}
-              <TableHead 
-                className="cursor-pointer hover:bg-black/5"
+              <TableHead
+                className="cursor-pointer hover:bg-muted/20"
                 onClick={() => handleSort('status')}
               >
                 <div className="flex items-center">
@@ -817,7 +927,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
                   </TableCell>
                 )}
                 <TableCell>
-                  <span className={grade.grade >= normalizedPassThreshold ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                  <span className="font-medium text-foreground" style={{ color: grade.grade >= normalizedPassThreshold ? 'var(--chart-passed)' : 'var(--chart-failed)' }}>
                     {grade.grade >= normalizedPassThreshold ? "Pass" : "Fail"}
                   </span>
                 </TableCell>

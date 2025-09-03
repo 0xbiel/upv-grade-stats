@@ -63,11 +63,29 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: oklch(0.55 0.25 240);
+  --chart-2: oklch(0.55 0.25 220);
+  --chart-3: oklch(0.5 0.3 200);
+  --chart-4: oklch(0.65 0.15 260);
+  --chart-5: oklch(0.7 0.1 280);
+  --chart-passed: oklch(0.6 0.25 140);
+  --chart-failed: oklch(0.55 0.3 20);
+  --chart-stroke: var(--muted-foreground);
+  /* Modern gradients for bars */
+  --chart-gradient-1: linear-gradient(135deg, oklch(0.55 0.25 240) 0%, oklch(0.65 0.2 250) 100%);
+  --chart-gradient-2: linear-gradient(135deg, oklch(0.55 0.25 220) 0%, oklch(0.65 0.2 230) 100%);
+  --chart-gradient-3: linear-gradient(135deg, oklch(0.5 0.3 200) 0%, oklch(0.6 0.25 210) 100%);
+  --chart-gradient-4: linear-gradient(135deg, oklch(0.65 0.15 260) 0%, oklch(0.75 0.1 270) 100%);
+  --chart-gradient-5: linear-gradient(135deg, oklch(0.7 0.1 280) 0%, oklch(0.8 0.05 290) 100%);
+  /* Radial gradients for pie slices */
+  --chart-radial-passed: radial-gradient(circle at 30% 30%, oklch(0.7 0.25 140) 0%, oklch(0.6 0.2 130) 100%);
+  --chart-radial-failed: radial-gradient(circle at 70% 70%, oklch(0.65 0.3 20) 0%, oklch(0.55 0.25 10) 100%);
+  /* Glassmorphism for tooltips */
+  --tooltip-bg: rgba(255, 255, 255, 0.15);
+  --tooltip-border: rgba(255, 255, 255, 0.2);
+  --tooltip-backdrop: blur(10px);
+  /* Flat design shadows */
+  --flat-shadow: 0 2px 4px oklch(0 0 0 / 0.1);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -76,6 +94,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --chart-height-mobile: 250px;
+  --chart-height-tablet: 300px;
+  --chart-height-desktop: 350px;
 }
 
 /* Removed .dark theme; black mode provides the dark experience. */
@@ -100,11 +121,29 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.7 0 0 / 40%);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --chart-1: oklch(0.65 0.3 240);
+  --chart-2: oklch(0.6 0.3 220);
+  --chart-3: oklch(0.55 0.35 200);
+  --chart-4: oklch(0.7 0.2 260);
+  --chart-5: oklch(0.75 0.15 280);
+  --chart-passed: oklch(0.65 0.3 140);
+  --chart-failed: oklch(0.6 0.35 20);
+  --chart-stroke: #fff;
+  /* Modern gradients for bars in dark mode */
+  --chart-gradient-1: linear-gradient(135deg, oklch(0.65 0.3 240) 0%, oklch(0.75 0.25 250) 100%);
+  --chart-gradient-2: linear-gradient(135deg, oklch(0.6 0.3 220) 0%, oklch(0.7 0.25 230) 100%);
+  --chart-gradient-3: linear-gradient(135deg, oklch(0.55 0.35 200) 0%, oklch(0.65 0.3 210) 100%);
+  --chart-gradient-4: linear-gradient(135deg, oklch(0.7 0.2 260) 0%, oklch(0.8 0.15 270) 100%);
+  --chart-gradient-5: linear-gradient(135deg, oklch(0.75 0.15 280) 0%, oklch(0.85 0.1 290) 100%);
+  /* Radial gradients for pie slices in dark mode */
+  --chart-radial-passed: radial-gradient(circle at 30% 30%, oklch(0.75 0.3 140) 0%, oklch(0.65 0.25 130) 100%);
+  --chart-radial-failed: radial-gradient(circle at 70% 70%, oklch(0.7 0.35 20) 0%, oklch(0.6 0.3 10) 100%);
+  /* Glassmorphism for tooltips in dark mode */
+  --tooltip-bg: rgba(0, 0, 0, 0.3);
+  --tooltip-border: rgba(255, 255, 255, 0.1);
+  --tooltip-backdrop: blur(15px);
+  /* Flat design shadows in dark mode */
+  --flat-shadow: 0 2px 4px oklch(0 0 0 / 0.3);
   --sidebar: oklch(0 0 0);
   --sidebar-foreground: oklch(1 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -113,6 +152,9 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.7 0 0 / 40%);
+  --chart-height-mobile: 250px;
+  --chart-height-tablet: 300px;
+  --chart-height-desktop: 350px;
 }
 
 @layer base {
@@ -123,3 +165,118 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Responsive chart heights */
+@media (max-width: 640px) {
+  :root, .black {
+    --chart-height: var(--chart-height-mobile);
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root, .black {
+    --chart-height: var(--chart-height-tablet);
+  }
+}
+
+@media (min-width: 1025px) {
+  :root, .black {
+    --chart-height: var(--chart-height-desktop);
+  }
+}
+
+/* Modern styling enhancements */
+
+/* Flat card styling */
+.flat-card {
+  box-shadow: var(--flat-shadow);
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+}
+
+.flat-card:hover {
+  box-shadow: 0 4px 8px oklch(0 0 0 / 0.15);
+}
+
+/* Glassmorphism tooltip */
+.glass-tooltip {
+  background: var(--tooltip-bg);
+  backdrop-filter: var(--tooltip-backdrop);
+  border: 1px solid var(--tooltip-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px oklch(0 0 0 / 0.1);
+}
+
+/* Chart animations */
+@keyframes chart-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chart-enter {
+  animation: chart-enter 0.6s ease-out;
+}
+
+@keyframes stagger-bar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-bar {
+  animation: stagger-bar 0.4s ease-out;
+  animation-fill-mode: both;
+}
+
+.stagger-bar:nth-child(1) { animation-delay: 0.1s; }
+.stagger-bar:nth-child(2) { animation-delay: 0.2s; }
+.stagger-bar:nth-child(3) { animation-delay: 0.3s; }
+.stagger-bar:nth-child(4) { animation-delay: 0.4s; }
+.stagger-bar:nth-child(5) { animation-delay: 0.5s; }
+.stagger-bar:nth-child(6) { animation-delay: 0.6s; }
+.stagger-bar:nth-child(7) { animation-delay: 0.7s; }
+.stagger-bar:nth-child(8) { animation-delay: 0.8s; }
+.stagger-bar:nth-child(9) { animation-delay: 0.9s; }
+.stagger-bar:nth-child(10) { animation-delay: 1.0s; }
+
+/* Pie slice animations */
+@keyframes pie-slice-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pie-slice-enter {
+  animation: pie-slice-enter 0.5s ease-out;
+}
+
+.pie-slice-enter:nth-child(1) { animation-delay: 0.1s; }
+.pie-slice-enter:nth-child(2) { animation-delay: 0.3s; }
+
+/* Micro-interactions */
+.chart-hover {
+  transition: all 0.2s ease;
+}
+
+.chart-hover:hover {
+  filter: brightness(1.1) saturate(1.2);
+  transform: scale(1.02);
+}
+
+/* Flat chart styling - no glow effects */

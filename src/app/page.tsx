@@ -137,10 +137,8 @@ export default function Home() {
     setValue(newValue);
   };
 
-  // Function to handle the submit action
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent the default form submission
-
+  // Function to handle the submit logic
+  const handleSubmitLogic = () => {
     // Parse the grades from the HTML input
     const parsedGrades = parseGrades(value);
     setGrades(parsedGrades);
@@ -150,6 +148,12 @@ export default function Home() {
       toast.error("No grades found in the input.");
       return;
     }
+  };
+
+  // Function to handle the submit action
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // Prevent the default form submission
+    handleSubmitLogic();
   };
 
   return (
@@ -227,6 +231,12 @@ export default function Home() {
             <AutoResizeTextarea
               value={value}
               onChange={handleChange}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSubmitLogic();
+                }
+              }}
               placeholder="Paste Grades here..."
               className="placeholder:text-muted-foreground flex-1 bg-transparent focus:outline-none w-full min-h-[75px]"
             />
@@ -239,7 +249,7 @@ export default function Home() {
                   className="absolute bottom-4 right-4 size-8 rounded-full"
                   disabled={value.trim() === ""}
                 >
-                  <a style={{ color: "white" }}>↑</a>
+                  ↑
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Submit</TooltipContent>
