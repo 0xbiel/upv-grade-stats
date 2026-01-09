@@ -913,7 +913,7 @@ export default function GradeView({ grades, maxPossibleGrade, setMaxPossibleGrad
           </TableHeader>
           <TableBody>
             {sortedGrades.map((grade, index) => (
-              <TableRow key={grade.studentName}>
+              <TableRow key={`${grade.studentName}-${index}`}>
                 <TableCell className="text-center font-mono text-muted-foreground">
                   {index + 1}
                 </TableCell>
